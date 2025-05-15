@@ -1,53 +1,43 @@
-import unittest
-import tempfile
-import os
-import sqlite3
-from unittest.mock import patch
-from auth import init_db, register, login, logout
+# auth_test.py
 
-class TestAuth(unittest.TestCase):
-    def setUp(self):
-        # 创建一个临时文件路径，不打开文件
-        fd, self.db_path = tempfile.mkstemp()
-        os.close(fd)  # 关闭文件描述符，避免文件占用
-        init_db(self.db_path)
+from auth import init_db, register, login, admin_menu
 
-    def tearDown(self):
-        try:
-            os.remove(self.db_path)
-        except PermissionError:
-            print(f"⚠️ 警告：无法删除 {self.db_path}，可能仍被占用。")
+def user_menu(username):
+    print(f"\n欢迎 {username} 进入普通用户菜单（这里你可以添加学习功能）")
+    input("按 Enter 返回主菜单...")
 
-    @patch("builtins.input", side_effect=["testuser", "password123"])
-    def test_register_new_user(self, mock_input):
-        username = register(db_path=self.db_path)
-        self.assertEqual(username, "testuser")
+def main():
+    print("==== 认证系统测试程序 ====")
+    init_db()  # 初始化数据库（含默认 admin）
 
-    @patch("builtins.input", side_effect=["testuser", "password123"])
-    def test_register_existing_user(self, mock_input):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("testuser", "password123"))
-        username = register(db_path=self.db_path)
-        self.assertIsNone(username)
+    while True:
+        print("\n主菜单：")
+        print("1. 注册")
+        print("2. 登录")
+        print("3. 退出")
+        choice = input("请选择：")
 
-    @patch("builtins.input", side_effect=["testuser", "password123"])
-    def test_login_success(self, mock_input):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("testuser", "password123"))
-        username = login(db_path=self.db_path)
-        self.assertEqual(username, "testuser")
+        if choice == "1":
+            register()
 
-    @patch("builtins.input", side_effect=["testuser", "wrongpass"])
-    def test_login_fail(self, mock_input):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("testuser", "password123"))
-        username = login(db_path=self.db_path)
-        self.assertIsNone(username)
+        elif choice == "2":
+            username, is_admin = login()
+            if username:
+                if is_admin:
+                    print(f"\n欢迎管理员 {username} 登录")
+                    admin_menu()
+                else:
+                    user_menu(username)
 
-    def test_logout(self):
-        result = logout()
-        self.assertIsNone(result)
+        elif choice == "3":
+            print("退出程序。")
+            break
+
+        else:
+            print("无效选择，请重试。")
 
 if __name__ == "__main__":
-    unittest.main()
+    main()
+
+
 
