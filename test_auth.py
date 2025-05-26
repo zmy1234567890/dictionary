@@ -1,43 +1,107 @@
-# auth_test.py
+import pytest
+from auth import init_db, validate_user, delete_user, update_password
+from auth import get_all_users, get_all_records
+import sqlite3
+import os
 
-from auth import init_db, register, login, admin_menu
+# 测试夹具
+@pytest.fixture(scope="module")
+def db_connection():
+    # 创建临时数据库
+    test_db = "test_users.db"
+    conn = sqlite3.connect(test_db)
+    yield conn
+    conn.close()
+    os.remove(test_db)
 
-def user_menu(username):
-    print(f"\n欢迎 {username} 进入普通用户菜单（这里你可以添加学习功能）")
-    input("按 Enter 返回主菜单...")
+def test_init_db(db_connection):
+    init_db(db_path=test_db)
+    cursor = db_connection.cursor()
+    
+    # 验证表结构
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in cursor.fetchall()]
+    assert set(columns) == {"username", "password", "is_admin"}
 
-def main():
-    print("==== 认证系统测试程序 ====")
-    init_db()  # 初始化数据库（含默认 admin）
+    # 验证admin账户
+    cursor.execute("SELECT * FROM users WHERE username='admin'")
+    admin = cursor.fetchone()
+    assert admin[2] == 1  # is_admin验证
 
-    while True:
-        print("\n主菜单：")
-        print("1. 注册")
-        print("2. 登录")
-        print("3. 退出")
-        choice = input("请选择：")
+def test_password_security(db_connection):
+    init_db(db_path=test_db)
+    # 测试明文存储漏洞
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT password FROM users WHERE username='admin'")
+    stored_pw = cursor.fetchone()[0]
+    assert stored_pw == "admin123"  # 明文存储警告
 
-        if choice == "1":
-            register()
+def test_login_cases(db_connection):
+    init_db(db_path=test_db)
+    
+    # 正确登录
+    success, is_admin, msg = validate_user("admin", "admin123", test_db)
+    assert success and is_admin
 
-        elif choice == "2":
-            username, is_admin = login()
-            if username:
-                if is_admin:
-                    print(f"\n欢迎管理员 {username} 登录")
-                    admin_menu()
-                else:
-                    user_menu(username)
+    # 错误密码
+    success, _, msg = validate_user("admin", "wrongpass", test_db)
+    assert not success and "错误" in msg
 
-        elif choice == "3":
-            print("退出程序。")
-            break
+    # 不存在用户
+    success, _, msg = validate_user("unknown", "nopass", test_db)
+    assert not success and "错误" in msg
 
-        else:
-            print("无效选择，请重试。")
+def test_admin_operations(db_connection):
+    init_db(db_path=test_db)
+    
+    # 普通用户创建
+    with connect_db(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users VALUES ('user1', 'pass1', 0)")
+        conn.commit()
 
-if __name__ == "__main__":
-    main()
+    # 权限验证
+    success, is_admin, _ = validate_user("user1", "pass1", test_db)
+    assert not is_admin
+
+    # 删除用户测试
+    assert delete_user("user1", test_db)
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT * FROM users WHERE username='user1'")
+    assert cursor.fetchone() is None
+
+def test_data_integrity(db_connection):
+    init_db(db_path=test_db)
+    
+    # 添加测试数据
+    with connect_db(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users VALUES ('test', 'testpw', 0)")
+        cursor.execute("INSERT INTO records VALUES ('test', 'apple', 1, 0, '2024-03-20', '2024-03-19', 'dict')")
+        conn.commit()
+
+    # 级联删除测试
+    delete_user("test", test_db)
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT * FROM records WHERE username='test'")
+    assert cursor.fetchone() is None
+
+def test_edge_cases(db_connection):
+    init_db(db_path=test_db)
+    
+    # 超长用户名
+    long_name = "a"*256
+    with connect_db(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users VALUES (?, 'pass', 0)", (long_name,))
+        conn.commit()
+    
+    # 特殊字符密码
+    special_pw = "!@#$%^&*()"
+    with connect_db(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users VALUES ('spec', ?, 0)", (special_pw,))
+        conn.commit()
 
 
 
