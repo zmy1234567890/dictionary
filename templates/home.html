@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>背单词系统 - 首页</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+
+<body>
+    <a href="{{ url_for('profile') }}" class="profile-btn">👤 个人中心</a>
+    <div class="container">
+        <h2>欢迎，{{ username }}</h2>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for msg in messages %}
+        <div class="flash">{{ msg }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="section">
+            <h3>选择词库</h3>
+            <form method="post">
+                <select name="dict_select" onchange="this.form.submit()">
+                    {% for f in dict_files %}
+                    <option value="{{ f }}" {% if f==selected_dict %}selected{% endif %}>{{ f }}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit">确认</button></noscript>
+            </form>
+        </div>
+
+        <div class="section">
+            <form method="post" style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                <label for="daily_count" style="white-space: nowrap; font-weight: bold;">每日学习词数</label>
+                <input type="number" id="daily_count" name="daily_count" min="1" value="{{ daily_count or '' }}"
+                    style="padding: 8px 12px; font-size: 1em; border: 1px solid #ccc; border-radius: 6px; width: 100px;" />
+                <button type="submit" name="set_daily_count" value="1" class="action-btn">保存</button>
+
+            </form>
+        </div>
+
+
+        <div class="section">
+            <h3>查询单词</h3>
+            <form method="post">
+                <input type="text" name="lookup_word" placeholder="输入单词查询" required autofocus autocomplete="off" />
+                <button type="submit" name="set_daily_count" value="1" class="action-btn">查询</button>
+            </form>
+
+            {% if word_info %}
+            {% if word_info.error %}
+            <div class="error">❌ 未找到单词 "{{ request.form.get('lookup_word') }}"</div>
+            {% else %}
+            <h4>单词：{{ word_info.word }}</h4>
+            <p><strong>释义：</strong> {{ word_info.translation }}</p>
+            {% if word_info.examples %}
+            <p><strong>例句：</strong></p>
+            <ul>
+                {% for ex in word_info.examples %}
+                <li>
+                    <strong>英文：</strong> {{ ex.en }}<br>
+                    <strong>中文：</strong> {{ ex.cn }}
+                </li>
+                {% endfor %}
+            </ul>
+
+            {% endif %}
+
+            <form method="post" style="margin-top: 10px;">
+                <input type="hidden" name="word" value="{{ word_info.word }}" />
+                <label for="level">熟悉程度：</label>
+                <select name="level" id="level">
+                    <option value="1">已掌握</option>
+                    <option value="0">模糊</option>
+                    <option value="-1">不认识</option>
+                </select>
+                <button type="submit" name="mark_word" value="1">标记</button>
+            </form>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <button type="button" class="action-btn" onclick="startLearn()">📖 Learn</button>
+            <button type="button" class="action-btn" onclick="toggleReview()">🔁 Review</button>
+
+            <div id="review-options" class="review-options hidden">
+                <button type="button" onclick="startDefinitionTest()">释义测试</button>
+                <button type="button" onclick="startSpellingTest()">拼写测试</button>
+            </div>
+        </div>
+
+        <a href="{{ url_for('logout') }}" class="logout">🔚 注销登录</a>
+    </div>
+
+    <script>
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle("collapsed");
+        }
+
+        function toggleReview() {
+            const review = document.getElementById("review-options");
+            review.classList.toggle("hidden");
+        }
+
+        function startLearn() {
+            window.location.href = "{{ url_for('learn') }}";
+        }
+
+        function startDefinitionTest() {
+            window.location.href = "{{ url_for('review') }}?mode=definition";
+        }
+
+        function startSpellingTest() {
+            window.location.href = "{{ url_for('review') }}?mode=spelling";
+        }
+    </script>
+
+</body>
+
+</html>

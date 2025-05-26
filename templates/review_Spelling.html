@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>拼写测试 - 背单词系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/review.css') }}" />
+    <style>
+        /* 新增样式，避免和之前冲突 */
+        .word-text-sm {
+            font-size: 1.2rem;
+            font-weight: normal;
+            margin-bottom: 1em;
+            text-align: center;
+        }
+
+        .option-btn-lg {
+            display: inline-block;
+            padding: 12px 24px;
+            font-size: 1.4rem;
+            margin: 10px 8px;
+            width: auto;
+            min-width: 140px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        .option-btn-lg:disabled.correct {
+            background-color: #4caf50;
+            color: white;
+            cursor: default;
+        }
+
+        .option-btn-lg:disabled.incorrect {
+            background-color: #e74c3c;
+            color: white;
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>拼写测试</h2>
+        
+        {% if total == 0 %}
+        <div class="section">
+            <p class="completed-message"><br />🎉 今日的复习已全部完成！<br /><br /><br /></p>
+            <a href="{{ url_for('home') }}" class="action-btn">返回首页</a>
+        </div>
+        
+        {% elif finished %}
+        <div class="section">
+            <p class="score">
+                你已完成所有题目！<br />
+                总得分：<br />
+                <span class="score-number">{{ score }}</span> / <span class="score-total">{{ total }}</span>
+            </p>
+            <a href="{{ url_for('home') }}" class="action-btn">返回首页</a>
+        </div>
+
+        {% else %}
+        <div class="section">
+            <p>题目 {{ current + 1 }} / {{ total }}</p>
+
+            <div class="card">
+                <h3 class="word-title">释义：</h3>
+                <h3 class="word-text-sm">{{ question.question }}</h3>
+
+                <!-- 拼写测试，选英文单词，form加class方便样式 -->
+                <form method="post" class="options">
+                    {% for option in question.options %}
+                    <button type="submit" name="choice" value="{{ option }}" class="option-btn-lg
+                            {% if selected %}
+                                {% if option == question.answer %}correct
+                                {% elif option == selected and not is_correct %}incorrect
+                                {% endif %}
+                            {% endif %}" {% if selected %} disabled {% endif %}>
+                        {{ option }}
+                    </button>
+                    {% endfor %}
+                    <input type="hidden" name="current" value="{{ current }}" />
+                </form>
+            </div>
+
+            {% if selected %}
+            {% if is_correct %}
+            <p class="correct">✅ 正确！</p>
+            {% else %}
+            <p class="incorrect">❌ 错误，正确答案是：{{ question.answer }}</p>
+            {% endif %}
+            {% endif %}
+
+            <form method="post">
+                <input type="hidden" name="current" value="{{ current }}" />
+                <button type="submit" name="action" value="prev" class="action-btn">⬅️ 上一题</button>
+                <button type="submit" name="action" value="next" class="action-btn">➡️ 下一题</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <button id="help-button" onclick="toggleHelpCard()">?</button>
+
+    <!-- 卡片内容 -->
+    <div id="help-card" style="display: none; position: absolute; top: 60px; right: 20px; width: 320px;
+                    border: 1px solid #ccc; padding: 15px; border-radius: 8px;
+                    background: #fefefe; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000;">
+        <p style="margin: 0; font-weight: bold; font-size: 1.1em;">帮助</p>
+        <p style="margin-top: 10px; line-height: 1.5;">
+            通过选择题形式测试用户对单词拼写的掌握情况，用户根据中文释义选择对应的英文单词。页面显示当前进度，提交答案后即时反馈正误并显示正确答案，答题完成后展示总分。用户可通过"上一题/下一题"按钮导航，全部答完后显示总得分并可以返回首页。
+        </p>
+        <p style="margin-top: 10px; line-height: 1.5; font-weight: bold;">回答错误的情况:</p>
+        <ul style="margin: 0 0 0 20px; line-height: 1.5;">
+            <li>「模糊」的单词将被标记为「不认识」，重新根据「不认识」的复习计划从次日开始进行复习。</li>
+            <li>「不认识」的单词重新根据「不认识」的复习计划从次日开始进行复习。</li>
+        </ul>
+    </div>
+
+    <script>
+        function toggleHelpCard() {
+            const card = document.getElementById("help-card");
+            card.style.display = (card.style.display === "none" || card.style.display === "") ? "block" : "none";
+        }
+    </script>
+
+</body>
+
+</html>

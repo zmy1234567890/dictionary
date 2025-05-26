@@ -1,45 +1,66 @@
-# users.py
+#users.py
+'''
+简易用户系统，支持注册和登录，并设计了单词学习记录表（记录用户单词学习状态）
+'''
+
 import sqlite3
+import os
+
+BASE_DIR = os.path.dirname(__file__)
+DB_PATH = os.path.join(BASE_DIR, "data", "dictlearn.db")
 
 def connect_db():
-    return sqlite3.connect("data/dictlearn.db")
+    os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
+    return sqlite3.connect(DB_PATH)
 
 def create_tables():
     conn = connect_db()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE,
-                    password TEXT NOT NULL
-                 )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS word_records (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    word TEXT,
-                    status TEXT,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id)
-                 )''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT NOT NULL
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS records (
+            username TEXT,
+            word TEXT,
+            mastered INTEGER,          -- -1: 不认识, 0: 模糊, 1: 熟悉等
+            review_stage INTEGER DEFAULT 0,,    -- 当前复习阶段
+            next_review TEXT,        -- 下次复习日期 (YYYY-MM-DD)
+            last_review TEXT,        -- 上次复习日期 (YYYY-MM-DD)
+            dict_file TEXT,
+            PRIMARY KEY (username, word, dict_file),
+            FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+        )
+    ''')
+
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS daily_progress (
+            username TEXT,
+            word TEXT,
+            dict_file TEXT,
+            date TEXT,
+            mastered INTEGER
+            FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
-def register(username, password):
-    conn = connect_db()
-    try:
-        conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-        conn.commit()
-        print("注册成功")
-    except sqlite3.IntegrityError:
-        print("用户名已存在")
-    conn.close()
-
-def login(username, password):
+def validate_user(username, password):
+    """
+    验证用户登录，返回 user_id 或 None
+    """
     conn = connect_db()
     cursor = conn.execute("SELECT id FROM users WHERE username=? AND password=?", (username, password))
     row = cursor.fetchone()
     conn.close()
     if row:
-        return row[0]  # 返回 user_id
+        return row[0]
     else:
-        print("用户名或密码错误")
         return None

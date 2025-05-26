@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>个人中心</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="profile-container">
+        <h1 class="username">欢迎, {{ username }} !</h1>
+
+        <div class="section" style="margin-top: 20px;">
+            <h3 style="text-align: left;">我的数据</h3>
+            <p style="font-size: 2em; font-weight: bold; text-align: center; margin: 10px 0;">
+                累计学习：
+                <strong>
+                    {{ total_learned }}
+                </strong>
+            </p>
+
+            <p style="font-size: 2em; font-weight: bold; text-align: center; margin: 10px 0;">
+                今日学习：
+                <strong>
+                    <span style="color: {{ 'green' if today_learned_count|int >= daily_count|int else 'red' }};">
+                        {{ today_learned_count }}
+                    </span>
+                    /{{ daily_count }}
+                </strong>
+            </p>
+
+            <p style="font-size: 2em; font-weight: bold; text-align: center; margin: 10px 0;">
+                今日复习：
+                <strong>
+                    <span style="color: {{ 'green' if today_reviewed_words_count|int == today_plan_review_words_count|int else 'red' }};">
+                        {{ today_reviewed_words_count }}
+                    </span>
+                    /{{ today_plan_review_words_count }}
+                </strong>
+            </p>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="btn-today">今日数据</button>
+                <button id="btn-learning">学习曲线</button>
+                <button id="btn-reviewing">复习曲线</button>
+            </div>
+
+            <!-- 今日数据区域 -->
+            <div id="today-container" style="display: none; width: 80%; max-width: 600px; margin: 20px auto;">
+                <div style="margin: 10px 0;">
+                    <label>掌握（{{ today_mastered_percent }}%）</label>
+                    <div style="background: #eee; border-radius: 5px;">
+                        <div
+                            style="width: {{ today_mastered_percent }}%; background-color: #4caf50; height: 20px; border-radius: 5px;">
+                        </div>
+                    </div>
+                </div>
+                <div style="margin: 10px 0;">
+                    <label>模糊（{{ today_unfamiliar_percent }}%）</label>
+                    <div style="background: #eee; border-radius: 5px;">
+                        <div
+                            style="width: {{ today_unfamiliar_percent }}%; background-color: #ffc107; height: 20px; border-radius: 5px;">
+                        </div>
+                    </div>
+                </div>
+                <div style="margin: 10px 0;">
+                    <label>不认识（{{ today_unknown_percent }}%）</label>
+                    <div style="background: #eee; border-radius: 5px;">
+                        <div
+                            style="width: {{ today_unknown_percent }}%; background-color: #f44336; height: 20px; border-radius: 5px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chart-container" style="display: none; width: 80%; max-width: 600px; margin: 20px auto;">
+                <canvas id="curveChart" style="width: 100%; height: 300px;"></canvas>
+            </div>
+        </div>
+
+        <!-- 引入Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            const days = {{ days | tojson }};
+            const learningCounts = {{ learning7_counts | tojson }};
+            const reviewCounts = {{ review7_counts | tojson }};  // 新增
+
+            let curveChart;
+
+            function createChart(label, data, color) {
+                if (curveChart) {
+                    curveChart.destroy();
+                }
+
+                const container = document.getElementById('curveChart').parentElement;
+                container.innerHTML = '<canvas id="curveChart" style="width: 100%; height: 300px;"></canvas>';
+
+                const newCtx = document.getElementById('curveChart').getContext('2d');
+
+                curveChart = new Chart(newCtx, {
+                    type: 'line',
+                    data: {
+                        labels: days,
+                        datasets: [{
+                            label: label,
+                            data: data,
+                            borderColor: color,
+                            fill: false,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                precision: 0
+                            }
+                        }
+                    }
+                });
+            }
+            
+            document.getElementById('btn-today').addEventListener('click', () => {
+                document.getElementById('chart-container').style.display = 'none';
+                document.getElementById('today-container').style.display = 'block';
+            });
+
+            document.getElementById('btn-learning').addEventListener('click', () => {
+                document.getElementById('today-container').style.display = 'none';
+                document.getElementById('chart-container').style.display = 'block';
+                createChart('学习曲线', learningCounts, 'rgba(75, 192, 192, 1)');
+            });
+
+            document.getElementById('btn-reviewing').addEventListener('click', () => {
+                document.getElementById('today-container').style.display = 'none';
+                document.getElementById('chart-container').style.display = 'block';
+                createChart('复习曲线', reviewCounts, 'rgba(135, 206, 235, 1)');
+            });
+
+        </script>
+
+        <div class="section">
+            <h3>我的单词</h3>
+            
+            <button class="toggle-btn" onclick="toggleList('mastered')">已掌握的单词</button>
+            <div class="word-list" id="mastered">
+                {% if mastered %}
+                <ul>
+                    {% for w in mastered %}
+                    <li>{{ w }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>（暂无）</p>
+                {% endif %}
+            </div>
+
+            <button class="toggle-btn" onclick="toggleList('unknown')">不认识的单词</button>
+            <div class="word-list" id="unknown">
+                {% if unknown %}
+                <ul>
+                    {% for w in unknown %}
+                    <li>{{ w }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>（暂无）</p>
+                {% endif %}
+            </div>
+
+            <button class="toggle-btn" onclick="toggleList('unfamiliar')">模糊的单词</button>
+            <div class="word-list" id="unfamiliar">
+                {% if unfamiliar %}
+                <ul>
+                    {% for w in unfamiliar %}
+                    <li>{{ w }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>（暂无）</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>学习进度</h3>
+
+            <div class="progress-container">
+                <p class="current-dictionary">当前词书：{{ selected_dict }}</p>
+                <div class="progress-bar">
+                    <div class="progress-mastered" style="width: {{ mastered_percent }}%" title="掌握：{{ mastered_count }}"></div>
+                    <div class="progress-unfamiliar" style="width: {{ unfamiliar_percent }}%" title="新认识：{{ unfamiliar_count }}">
+                    </div>
+                    <div class="progress-unknown" style="width: {{ unknown_percent }}%" title="不认识：{{ unknown_count }}"></div>
+                </div>
+                <p class="progress-text">
+                    已学习：{{ learned_count }} / {{ total_count }}
+                    （已掌握：{{ mastered_count }}，模糊：{{ unfamiliar_count }}，不认识：{{ unknown_count }}）
+                </p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <br>
+            <h3>复习列表</h3>
+            
+            <!-- 可展开按钮 -->
+            <button onclick="toggleTheory()" style="font-size: 0.9em; padding: 4px 8px; margin-bottom: 10px;">
+                复习原理 ⬇
+            </button>
+            
+            <!-- 折叠内容卡片 -->
+            <div id="theory-card"
+                style="display: none; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #f9f9f9;">
+                <p style="line-height: 1.6;">
+                    根据艾宾浩斯记忆曲线，人的记忆随着时间推移会逐渐衰退，及时且有规律的复习可以有效减缓遗忘，提高记忆的持久性。
+                    基于这一规律，我们将单词按照熟悉度分为「模糊」和「不认识」两类，分别制定不同的复习频率和间隔计划，以达到最佳复习效果。
+                </p>
+            
+                <div style="text-align: center; margin: 15px 0;">
+                    <img src="{{ url_for('static', filename='images/curve.jpeg') }}" alt="艾宾浩斯记忆曲线图"
+                        style="max-width: 100%; height: auto; border-radius: 6px;">
+                </div>
+            
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.95em;">
+                    <thead>
+                        <tr style="background: #e0e0e0;">
+                            <th style="padding: 8px; border: 1px solid #ccc;">熟悉度</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">复习频率</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">复习间隔计划</th>
+                            <th style="padding: 8px; border: 1px solid #ccc;">复习重点</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ccc;">模糊</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">中等频率</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">1天/3天/7天/14天/30天</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">
+                                递增复习间隔，巩固记忆
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ccc;">不认识</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">高频率</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">1天/1天/2天/3天/7天/14天/30天</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">
+                                短期内多次暴露，快速建立记忆
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- ✅ 复习列表卡片（固定高度） -->
+            <div class="review-card">
+                {% if pending_reviews %}
+                <table class="review-table">
+                    <thead>
+                        <tr>
+                            <th>单词</th>
+                            <th>下次复习</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for word, next_date in pending_reviews %}
+                        <tr>
+                            <td>{{ word }}</td>
+                            <td>{{ next_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="text-align:center; color: #888; font-size: 0.95em;">
+                    [ 目前没有待复习的单词 ]
+                </p>
+                {% endif %}
+            </div>
+
+
+            
+
+        </div>
+        
+        <!-- 折叠逻辑脚本 -->
+        <script>
+            function toggleTheory() {
+                const card = document.getElementById("theory-card");
+                card.style.display = (card.style.display === "none") ? "block" : "none";
+            }
+        </script>
+
+
+        <a href="{{ url_for('home') }}" class="back-link">← 返回首页</a>
+    </div>
+
+    <script>
+        function toggleList(id) {
+            const el = document.getElementById(id);
+            if (el.style.display === "none" || el.style.display === "") {
+                el.style.display = "block";
+            } else {
+                el.style.display = "none";
+            }
+        }
+
+        // 学习比例饼图
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['已学习', '未学习'],
+                datasets: [{
+                    data: [{{ learned_count }}, {{ unlearned_count }}],
+            backgroundColor: ['rgba(54, 162, 235, 0.7)', 'rgba(201, 203, 207, 0.7)'],
+            borderColor: ['rgba(54, 162, 235, 1)', 'rgba(201, 203, 207, 1)'],
+            borderWidth: 1
+        }]
+            },
+            options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: '当前词书学习比例'
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+        });
+    </script>
+
+</body>
+
+</html>

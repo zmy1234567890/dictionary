@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>背单词系统 - 学习</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/learn.css') }}">
+</head>
+
+<body>
+    <div class="container">
+
+        <h2>📘 开始学习</h2>
+
+        {% if words|length > 0 %}
+        <div>
+            <span id="progress"
+                style="font-weight: bold; font-size: 16px; margin-bottom: 10px; display: inline-block;"></span>
+        </div>
+
+        <div class="card" id="word-card">
+            <div class="word-large" id="word-text"></div>
+            <div class="translation" id="word-translation"></div>
+            <ul class="examples" id="word-examples"></ul>
+        </div>
+
+        <div class="nav-buttons" style="margin-top: 10px;">
+            <button id="prev-word">上一个</button>
+            <button id="next-word">下一个</button>
+        </div>
+
+        <form method="post" id="mark-form" style="margin-top: 10px;">
+            <input type="hidden" name="word" id="mark-word" value="">
+            <input type="hidden" name="level" id="mark-level" value="">
+            <input type="hidden" name="index" id="mark-index" value="">
+            <div class="btn-group" style="margin-top: 10px;">
+                <button type="button" onclick="markWord(1)">已掌握</button>
+                <button type="button" onclick="markWord(0)">模糊</button>
+                <button type="button" onclick="markWord(-1)">不认识</button>
+            </div>
+        </form>
+
+        {% else %}
+        <p>🎉 已完成当前词库所有单词的学习！</p>
+        {% endif %}
+
+        {% if today_learned_count is not none and daily_count is not none %}
+        <p style="
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+            {% if today_learned_count < daily_count %}
+                color: red;
+            {% else %}
+                color: green;
+            {% endif %}
+        ">
+            今日学习: {{ today_learned_count }} / {{ daily_count }}
+            {% if today_learned_count >= daily_count %}
+            ，恭喜你完成今日学习！
+            {% endif %}
+        </p>
+        {% endif %}
+
+        <a href="{{ url_for('home') }}" class="back-link">← 返回首页</a>
+    </div>
+
+    <script>
+        const words = {{ words | tojson | safe }};
+        const totalWords = {{ total }};
+
+        let currentIndex = 0;
+
+        function showWord(index) {
+            if (words.length === 0) return;
+
+            if (index < 0) index = words.length - 1;
+            if (index >= words.length) index = 0;
+            currentIndex = index;
+
+            const w = words[index];
+            document.getElementById("word-text").textContent = w.word;
+            document.getElementById("word-translation").textContent = w.translation;
+
+            const exList = document.getElementById("word-examples");
+            exList.innerHTML = "";
+            if (w.examples && w.examples.length > 0) {
+                for (let ex of w.examples) {
+                    const li = document.createElement("li");
+                    if (typeof ex === "string") {
+                        li.textContent = ex;
+                    } else {
+                        li.innerHTML = ex.en + "<br>" + ex.cn;
+                    }
+                    exList.appendChild(li);
+                }
+            }
+
+            const globalIndex = currentIndex + 1;
+            document.getElementById("progress").textContent = `${globalIndex} / ${totalWords}`;
+
+            // 更新隐藏表单，用于POST
+            document.getElementById("mark-word").value = w.word;
+            document.getElementById("mark-level").value = "";
+            document.getElementById("mark-index").value = currentIndex;
+        }
+
+        document.getElementById("prev-word").addEventListener("click", () => {
+            showWord(currentIndex - 1);
+        });
+
+        document.getElementById("next-word").addEventListener("click", () => {
+            showWord(currentIndex + 1);
+        });
+
+        function markWord(level) {
+            if (words.length === 0) return;
+            document.getElementById("mark-level").value = level;
+            document.getElementById("mark-form").submit();
+        }
+
+        showWord(currentIndex);
+    </script>
+
+
+    <button id="help-button" onclick="toggleHelpCard()">?</button>
+
+    <!-- 卡片内容 -->
+    <div id="help-card"
+        style="display: none; position: absolute; top: 60px; right: 20px; width: 320px;
+                border: 1px solid #ccc; padding: 15px; border-radius: 8px;
+                background: #fefefe; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; font-size: 0.95em; line-height: 1.5;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 1.1em;">帮助</p>
+
+        <p>学习页面允许用户浏览单词卡片（显示单词、释义和例句），通过"上一个/下一个"按钮导航，用三个按钮标记掌握程度（已掌握/模糊/不认识）。对某个单词进行标记后，单词将移出学习列表。顶部显示学习进度和今日任务完成情况。</p>
+
+        <p style="margin-top: 12px; font-weight: bold;">单词分类:</p>
+        <ul style="padding-left: 18px; margin: 6px 0;">
+            <li><strong>已掌握</strong>：用户已认识的单词，不会出现在复习列表中。</li>
+            <li><strong>模糊</strong>：用户可能见过的单词，按中等频率进行复习。</li>
+            <li><strong>不认识</strong>：用户新认识的单词，按高频率进行复习。</li>
+        </ul>
+    </div>
+
+
+    <script>
+        function toggleHelpCard() {
+            const card = document.getElementById("help-card");
+            card.style.display = (card.style.display === "none" || card.style.display === "") ? "block" : "none";
+        }
+    </script>
+
+
+</body>
+
+</html>
